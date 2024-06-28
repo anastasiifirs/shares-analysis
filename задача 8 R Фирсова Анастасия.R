@@ -1,0 +1,158 @@
+#download api-----------------------------------------
+Sys.setlocale("LC_CTYPE", "russian")
+download.API <- function(a1,a2,a3,a4) {
+  
+  url <- paste0('https://iss.moex.com/iss/history/engines/',a1,'/markets/',a2,'/boards/',a3,'/securities/',a4,'.csv?start=')
+  
+  d <- read.csv(paste0(url,0),skip=1,sep=';')
+  
+  for (i in seq(100,10^4, by = 100)) {
+    temp <- read.csv(paste0(url,i),skip=1,sep=';')
+    if (nrow(temp)==0) {break}
+    d <- rbind(d,temp)
+    print(i)
+  }
+   d$TRADEDATE <- as.Date(d$TRADEDATE)
+   
+   d <- d[d$TRADEDATE > '2019-09-06',]
+   
+   d <- d[!is.na(d$CLOSE),]
+   
+   d$prirost <- 100*c(NA,tail(d$CLOSE,-1)/head(d$CLOSE,-1)-1)
+   
+   dm <- aggregate(d[c('TRADEDATE','CLOSE')], by=list(YM=format(d$TRADEDATE, '%Y-%m')), tail,1)
+   
+   dm$CLOSE2 <- dm$CLOSE / head(dm$CLOSE,1)
+
+   return(dm)
+}
+#download.api был split-------------------------------------
+download.API1 <- function(a1,a2,a3,a4) {
+  
+  url <- paste0('https://iss.moex.com/iss/history/engines/',a1,'/markets/',a2,'/boards/',a3,'/securities/',a4,'.csv?start=')
+  
+  d <- read.csv(paste0(url,0),skip=1,sep=';')
+
+  
+  for (i in seq(100,10^4, by = 100)) {
+    temp <- read.csv(paste0(url,i),skip=1,sep=';')
+    if (nrow(temp)==0) {break}
+    d <- rbind(d,temp)
+    print(i)
+  }
+  d$TRADEDATE <- as.Date(d$TRADEDATE)
+  
+  
+  d <- d[!is.na(d$CLOSE),]
+  
+  d$prirost <- 100*c(NA,tail(d$CLOSE,-1)/head(d$CLOSE,-1)-1)
+  
+  d$CLOSE[d$TRADEDATE<d$TRADEDATE[which.min(d$prirost)]] <- d$CLOSE[d$TRADEDATE<d$TRADEDATE[which.min(d$prirost)]]/100
+  
+  dm <- aggregate(d[c('TRADEDATE','CLOSE')], by=list(YM=format(d$TRADEDATE, '%Y-%m')), tail,1)
+  
+  dm$CLOSE2 <- dm$CLOSE / head(dm$CLOSE,1)
+  
+  return(dm)
+}
+#YNDX--------------------------------------
+
+Yandex <- download.API('stock','shares','tqbr','yndx')
+plot(Yandex$TRADEDATE,Yandex$CLOSE2, type = 'l',col = 'red')
+
+#SBRB------------------------------------------
+
+Sber <- download.API1('stock','shares','tqtf','sbrb')
+
+lines(Sber$TRADEDATE, Sber$CLOSE2, col = "green")
+
+#IMOEX------------------------------------------
+
+IMOEX <- download.API('stock', 'index', 'sndx', 'imoex')
+
+lines(IMOEX$TRADEDATE, IMOEX$CLOSE2, col = "purple")
+
+#процент доходности-----------------------------------
+
+#yndx
+
+procenty <- (tail(Yandex$CLOSE2,1)-head(Yandex$CLOSE2,1))*100
+ynx <- paste("Процент доходности Яндекс =", procenty)
+print(ynx)
+
+#sbmx
+
+procents <- (tail(Sber$CLOSE2,1)-head(Sber$CLOSE2,1))*100
+sbol <- paste("Процент доходности Сбербанк =", procents)
+print(sbol)
+
+#imoex
+procenti <- (tail(IMOEX$CLOSE2,1)-head(IMOEX$CLOSE2,1))*100
+imx <- paste("Процент доходности Мосбиржа =", procenti)
+print(imx)
+
+#Исторический минимум и дата-------------------------------
+
+#yndx
+
+dataya <- as.Date(Yandex$TRADEDATE[which.min(Yandex$CLOSE)])
+minya <- min(Yandex$CLOSE)
+hy <- paste("Исторический минимум Яндекс =", minya, ", дата:",dataya)
+hy
+
+#sber
+
+datasber <- as.Date(Sber$TRADEDATE[which.min(Sber$CLOSE)])
+minsber <- min(Sber$CLOSE)
+hs <- paste("Исторический минимум Сбербанк =", minsber, ", дата:",datasber)
+
+hs
+
+#imoex
+dataimoex <- as.Date(IMOEX$TRADEDATE[which.min(IMOEX$CLOSE)])
+minimoex <- min(IMOEX$CLOSE)
+hi <- paste("Исторический минимум Мосбиржа =", minimoex, ", дата:",dataimoex)
+hi
+
+#Исторический максимум----------------------------------------
+
+#yndx
+
+dataya <- as.Date(Yandex$TRADEDATE[which.max(Yandex$CLOSE)])
+maxya <- max(Yandex$CLOSE)
+hy <- paste("Исторический максимум Яндекс =", maxya, ", дата:",dataya)
+hy
+
+#sber
+
+datasber <- as.Date(Sber$TRADEDATE[which.max(Sber$CLOSE)])
+maxsber <- max(Sber$CLOSE)
+hs <- paste("Исторический максимум Сбербанк =", maxsber, ", дата:",datasber)
+hs
+
+#imoex
+dataimoex <- as.Date(IMOEX$TRADEDATE[which.max(IMOEX$CLOSE)])
+maximoex <- max(IMOEX$CLOSE)
+hi <- paste("Исторический максимум Мосбиржа =", maximoex, ", дата:",dataimoex)
+hi
+
+#Средний прирост---------------------------------
+
+#yndx
+
+prirost <- 100*c(NA,tail(Yandex$CLOSE,-1)/head(Yandex$CLOSE,-1)-1)
+im <- summary(prirost)
+srim <- im['Mean']
+cat('Средний прирост Яндекс =', srim)
+
+#sbrb
+prirost <- 100*c(NA,tail(Sber$CLOSE,-1)/head(Sber$CLOSE,-1)-1)
+s <- summary(prirost)
+srs <- s['Mean']
+cat('Средний прирост Сбербанк =', srs)
+
+#imoex
+prirost <- 100*c(NA,tail(IMOEX$CLOSE,-1)/head(IMOEX$CLOSE,-1)-1)
+im <- summary(prirost)
+srim <- im['Mean']
+cat('Средний прирост Мосбиржа =', srim)
